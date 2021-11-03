@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.common.thermalimage.TemperatureBitmapData
+import com.common.thermalimage.TemperatureData
 import com.example.baseproject.R
 import com.example.baseproject.databinding.ActivityMainBinding
 import com.example.baseproject.presenter.recognize.RecognizeActivity
@@ -11,6 +13,8 @@ import com.example.baseproject.presenter.recognize.RecognizeActivity.Companion.E
 import com.example.baseproject.presenter.register.RegisterActivity
 import com.example.baseproject.util.AppEnvironment
 import com.example.baseproject.util.ext.*
+import com.example.baseproject.util.thermal.FRThermal
+import com.example.baseproject.util.thermal.ThermalListener
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionDeniedResponse
 import com.karumi.dexter.listener.PermissionGrantedResponse
@@ -38,6 +42,9 @@ class MainActivity : AppCompatActivity(), PermissionListener {
             this.verifyType = AppEnvironment.VerifyTypes.CHECKOUT
             openRecognizePageWithPermission()
         }
+        FRThermal.context = this
+        FRThermal.getSingleton()
+        FRThermal.getSingleton().initThermal(FRThermal.DeviceType.SENTUH)
     }
 
     override fun onPermissionGranted(response: PermissionGrantedResponse?) {
@@ -90,5 +97,10 @@ class MainActivity : AppCompatActivity(), PermissionListener {
         } else {
             openRecognizePage()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        FRThermal.getSingleton().destroy()
     }
 }
