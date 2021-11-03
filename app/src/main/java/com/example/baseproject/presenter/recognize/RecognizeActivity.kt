@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
+import android.view.Surface
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -16,6 +17,8 @@ import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import coil.load
+import com.common.thermalimage.TemperatureBitmapData
+import com.common.thermalimage.TemperatureData
 import com.example.baseproject.data.Resource
 import com.example.baseproject.databinding.ActivityRecognizeBinding
 import com.example.baseproject.domain.model.*
@@ -26,6 +29,7 @@ import com.example.baseproject.util.ext.*
 import com.example.baseproject.util.mlkit.CameraXViewModel
 import com.example.baseproject.util.mlkit.VisionImageProcessor
 import com.example.baseproject.util.mlkit.facedetector.FaceDetectorProcessor
+import com.example.baseproject.util.telpo.FRThermal
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import id.zelory.compressor.Compressor
@@ -55,7 +59,7 @@ class RecognizeActivity : AppCompatActivity() {
     private var analysisUseCase: ImageAnalysis? = null
     private var imageCaptureUseCase: ImageCapture? = null
     private var imageProcessor: VisionImageProcessor? = null
-    private var lensFacing = CameraSelector.LENS_FACING_FRONT
+    private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var cameraSelector: CameraSelector? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +72,7 @@ class RecognizeActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         initView()
+        initThermal()
         initCameraProvider()
         initObserver()
     }
@@ -89,6 +94,7 @@ class RecognizeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
 
+        FRThermal.getSingleton().destroy()
         imageProcessor?.run { this.stop() }
     }
 
@@ -108,6 +114,11 @@ class RecognizeActivity : AppCompatActivity() {
                     bindAllCameraUseCases()
                 }
             )
+    }
+
+    private fun initThermal() {
+        FRThermal.context = this
+        FRThermal.getSingleton()
     }
 
     private fun initObserver() {
@@ -303,6 +314,7 @@ class RecognizeActivity : AppCompatActivity() {
                     onFaceDetected = {
                         if (!viewModel.isOnProgress) {
                             viewModel.isOnProgress = true
+                            getThermal()
                             takePicture()
                         }
                     }
@@ -313,6 +325,7 @@ class RecognizeActivity : AppCompatActivity() {
             }
 
         analysisUseCase = ImageAnalysis.Builder().build()
+        analysisUseCase?.targetRotation = Surface.ROTATION_180
         analysisUseCase?.setAnalyzer(
             // imageProcessor.processImageProxy will use another thread to run the detection underneath,
             // thus we can just runs the analyzer itself on main thread.
@@ -343,6 +356,27 @@ class RecognizeActivity : AppCompatActivity() {
             }
         )
         cameraProvider?.bindToLifecycle(this, cameraSelector!!, analysisUseCase)
+    }
+
+    private fun getThermal() {
+        FRThermal.getSingleton().getData(object : FRThermal.ThermalListener {
+
+            override fun onDone(
+                error: String?, temperatureBitmapData: TemperatureBitmapData?, temperatureData:
+                TemperatureData?
+            ) {
+                if (error.isNullOrEmpty()) {
+                    temperatureData?.let {
+                        viewModel.setThermal(
+                            temperature = "${temperatureData.temperature} ℃",
+                            isUnusual = temperatureData.isUnusualTem
+                        )
+                    }
+                } else {
+                    showToast(error)
+                }
+            }
+        })
     }
 
     private fun takePicture() {
