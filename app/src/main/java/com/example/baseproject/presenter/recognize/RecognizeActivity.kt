@@ -29,7 +29,8 @@ import com.example.baseproject.util.ext.*
 import com.example.baseproject.util.mlkit.CameraXViewModel
 import com.example.baseproject.util.mlkit.VisionImageProcessor
 import com.example.baseproject.util.mlkit.facedetector.FaceDetectorProcessor
-import com.example.baseproject.util.telpo.FRThermal
+import com.example.baseproject.util.thermal.FRThermal
+import com.example.baseproject.util.thermal.ThermalListener
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import id.zelory.compressor.Compressor
@@ -72,9 +73,11 @@ class RecognizeActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         initView()
-        initThermal()
         initCameraProvider()
         initObserver()
+
+        //val thread = SimpleThread()
+        //thread.start() // Will output: Thread[Thread-0,5,main] has run.
     }
 
     override fun onResume() {
@@ -94,7 +97,6 @@ class RecognizeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
 
-        FRThermal.getSingleton().destroy()
         imageProcessor?.run { this.stop() }
     }
 
@@ -114,11 +116,6 @@ class RecognizeActivity : AppCompatActivity() {
                     bindAllCameraUseCases()
                 }
             )
-    }
-
-    private fun initThermal() {
-        FRThermal.context = this
-        FRThermal.getSingleton()
     }
 
     private fun initObserver() {
@@ -314,8 +311,8 @@ class RecognizeActivity : AppCompatActivity() {
                     onFaceDetected = {
                         if (!viewModel.isOnProgress) {
                             viewModel.isOnProgress = true
-                            getThermal()
                             takePicture()
+                            getThermal()
                         }
                     }
                 }
@@ -325,7 +322,7 @@ class RecognizeActivity : AppCompatActivity() {
             }
 
         analysisUseCase = ImageAnalysis.Builder().build()
-        analysisUseCase?.targetRotation = Surface.ROTATION_180
+        analysisUseCase!!.targetRotation = Surface.ROTATION_180
         analysisUseCase?.setAnalyzer(
             // imageProcessor.processImageProxy will use another thread to run the detection underneath,
             // thus we can just runs the analyzer itself on main thread.
@@ -359,8 +356,7 @@ class RecognizeActivity : AppCompatActivity() {
     }
 
     private fun getThermal() {
-        FRThermal.getSingleton().getData(object : FRThermal.ThermalListener {
-
+        FRThermal.getSingleton().getData(object : ThermalListener {
             override fun onDone(
                 error: String?, temperatureBitmapData: TemperatureBitmapData?, temperatureData:
                 TemperatureData?
@@ -430,4 +426,5 @@ class RecognizeActivity : AppCompatActivity() {
         val bitmapdata: ByteArray = bos.toByteArray()
         return ByteArrayInputStream(bitmapdata)
     }
+
 }
